@@ -1,0 +1,1007 @@
+@page "/"
+@{
+    // Cache headers prevent the browser from serving this page from cache after logout.
+    Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    Response.Headers["Pragma"] = "no-cache";
+    Response.Headers["Expires"] = "0";
+
+    var serverUrl = $"{Request.Scheme}://{Request.Host}";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elsa Workflows</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/_content/Elsa.Designer.Components.Web/elsa-workflows-studio/assets/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/_content/Elsa.Designer.Components.Web/elsa-workflows-studio/assets/images/favicon-16x16.png">
+    <link rel="stylesheet" href="/_content/Elsa.Designer.Components.Web/elsa-workflows-studio/assets/fonts/inter/inter.css">
+    <link rel="stylesheet" href="/_content/Elsa.Designer.Components.Web/elsa-workflows-studio/elsa-workflows-studio.css">
+    <script src="/_content/Elsa.Designer.Components.Web/monaco-editor/min/vs/loader.js"></script>
+    <script type="module" src="/_content/Elsa.Designer.Components.Web/elsa-workflows-studio/elsa-workflows-studio.esm.js"></script>
+</head>
+<body>
+    <elsa-studio-root server-url="@serverUrl" monaco-lib-path="_content/Elsa.Designer.Components.Web/monaco-editor/min">
+
+        <!-- Custom header placed in Elsa header slot -->
+        <div slot="header" style="display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;border-radius:6px;padding:6px 12px;border:1px solid #ddd;">
+
+            <!-- Left: Logo -->
+            <div style="display:flex;align-items:center;gap:10px;">
+                <img src="/Images/monocept_logo.png" alt="Logo" style="height:28px;" />
+            </div>
+
+            <!-- Center: Welcome Text -->
+            <div style="flex:1;text-align:center;">
+                <span style="font-weight:bold;font-size:large">Welcome to Mozart Workflows</span>
+            </div>
+
+            <!-- Right: Profile avatar -->
+            <div style="position:relative;">
+                <button id="btn-profile"
+                        onclick="toggleProfileMenu(event)"
+                        style="width:38px;height:38px;border-radius:50%;background:#6366f1;border:none;
+                               color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+                               display:flex;align-items:center;justify-content:center;
+                               box-shadow:0 2px 6px rgba(99,102,241,.35);">
+                    <span id="user-initials">?</span>
+                </button>
+
+                <!-- Profile dropdown -->
+                <div id="profile-menu"
+                     style="display:none;position:absolute;right:0;top:46px;
+                            background:#fff;border:1px solid #e5e7eb;border-radius:8px;
+                            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:200px;z-index:10002;
+                            font-family:Inter,sans-serif;font-size:13px;">
+                    <!-- Username (populated by initAuth JS) -->
+                    <div style="padding:12px 16px 8px;">
+                        <div id="profile-name" style="font-weight:700;color:#111827;">User</div>
+                        <div id="profile-admin-badge" style="display:none;font-size:11px;color:#6366f1;margin-top:2px;">Administrator</div>
+                    </div>
+                    <div style="height:1px;background:#e5e7eb;margin:4px 0;"></div>
+
+                    <button onclick="openChangePassword()"
+                            style="width:100%;text-align:left;padding:9px 16px;border:none;background:none;
+                                   cursor:pointer;font-size:13px;color:#374151;display:flex;align-items:center;gap:8px;">
+                        🔒 Change Password
+                    </button>
+
+                    <!-- Admin-only buttons — shown by initAuth JS when IS_ADMIN is true -->
+                    <button id="btn-manage-users"
+                            onclick="openManageUsers()"
+                            style="display:none;width:100%;text-align:left;padding:9px 16px;border:none;background:none;
+                                   cursor:pointer;font-size:13px;color:#374151;">
+                        👥 Manage Users
+                    </button>
+                    <button id="btn-change-history"
+                            onclick="openChangeHistory()"
+                            style="display:none;width:100%;text-align:left;padding:9px 16px;border:none;background:none;
+                                   cursor:pointer;font-size:13px;color:#374151;">
+                        📜 Change History
+                    </button>
+
+                    <div style="height:1px;background:#e5e7eb;margin:4px 0;"></div>
+
+                    <button onclick="doLogout()"
+                            style="width:100%;text-align:left;padding:9px 16px;border:none;background:none;
+                                   cursor:pointer;font-size:13px;color:#dc2626;display:flex;align-items:center;gap:8px;">
+                        🚪 Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <elsa-studio-dashboard></elsa-studio-dashboard>
+    </elsa-studio-root>
+
+    <!-- ═══════════════════════════════ Change Password Modal ════════════════ -->
+    <button id="cp-backdrop"
+         type="button"
+         aria-label="Close change password dialog"
+         onclick="closeChangePassword()"
+         onkeydown="handleBackdropKey(event, closeChangePassword)"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;"></button>
+
+    <div id="cp-modal"
+         style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+                background:#fff;border-radius:10px;padding:28px 32px;width:380px;max-width:95vw;
+                z-index:10001;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:Inter,sans-serif;">
+        <h3 style="margin:0 0 20px;font-size:16px;font-weight:700;color:#111827;">🔒 Change Password</h3>
+
+        <div style="margin-bottom:14px;">
+            <label for="cp-current" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">Current Password</label>
+            <input id="cp-current" type="password" placeholder="Current password"
+                   style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;
+                          border-radius:6px;font-size:13px;outline:none;" />
+        </div>
+        <div style="margin-bottom:14px;">
+            <label for="cp-new" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">New Password</label>
+            <input id="cp-new" type="password" placeholder="New password"
+                   style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;
+                          border-radius:6px;font-size:13px;outline:none;" />
+        </div>
+        <div style="margin-bottom:20px;">
+            <label for="cp-confirm" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">Confirm New Password</label>
+            <input id="cp-confirm" type="password" placeholder="Confirm new password"
+                   style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;
+                          border-radius:6px;font-size:13px;outline:none;" />
+        </div>
+
+        <div id="cp-msg" style="display:none;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:14px;"></div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="closeChangePassword()"
+                    style="padding:8px 18px;border:1px solid #d1d5db;border-radius:6px;
+                           background:#fff;cursor:pointer;font-size:13px;color:#374151;">
+                Cancel
+            </button>
+            <button onclick="saveChangePassword()"
+                    style="padding:8px 18px;border:none;border-radius:6px;
+                           background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
+                Save
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════ Manage Users Panel ═══════════════════ -->
+    <button id="mu-backdrop"
+         type="button"
+         aria-label="Close manage users panel"
+         onclick="closeManageUsers()"
+         onkeydown="handleBackdropKey(event, closeManageUsers)"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9996;"></button>
+
+    <div id="mu-panel"
+         style="display:none;flex-direction:column;position:fixed;top:0;right:0;
+                height:100vh;width:min(820px,100vw);background:#fff;z-index:9997;
+                box-shadow:-4px 0 24px rgba(0,0,0,.18);font-family:Inter,sans-serif;font-size:13px;">
+
+        <!-- Header -->
+        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;
+                    align-items:center;justify-content:space-between;flex-shrink:0;">
+            <span style="font-weight:700;font-size:15px;color:#111827;">👥 Manage Users</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button onclick="openAddUser()"
+                        style="padding:7px 14px;background:#6366f1;color:#fff;border:none;
+                               border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+                    + Add User
+                </button>
+                <button onclick="closeManageUsers()"
+                        style="background:none;border:none;cursor:pointer;padding:4px;color:#6b7280;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Users table -->
+        <div style="flex:1;overflow-y:auto;padding:20px;">
+            <p id="mu-loading" style="color:#6b7280;text-align:center;">Loading…</p>
+            <table id="mu-table" style="display:none;width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                        <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;">Username</th>
+                        <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;">Email</th>
+                        <th style="padding:10px 8px;text-align:center;font-weight:600;color:#374151;">Status</th>
+                        <th style="padding:10px 8px;text-align:center;font-weight:600;color:#374151;">Admin</th>
+                        <th style="padding:10px 8px;text-align:center;font-weight:600;color:#374151;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="mu-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add User mini-modal -->
+    <div id="au-backdrop"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10002;"></div>
+    <div id="au-modal"
+         style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+                background:#fff;border-radius:10px;padding:28px 32px;width:360px;max-width:95vw;
+                z-index:10003;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:Inter,sans-serif;">
+        <h3 style="margin:0 0 20px;font-size:16px;font-weight:700;color:#111827;">Add User</h3>
+        <div style="margin-bottom:12px;">
+            <label for="au-username" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">Username</label>
+            <input id="au-username" type="text" placeholder="Username"
+                   style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;outline:none;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label for="au-email" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">Email</label>
+            <input id="au-email" type="email" placeholder="email@example.com"
+                   style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;outline:none;" />
+        </div>
+        <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+            <input id="au-isadmin" type="checkbox" style="width:16px;height:16px;cursor:pointer;" />
+            <label for="au-isadmin" style="font-size:13px;color:#374151;cursor:pointer;">Is Administrator</label>
+        </div>
+        <div id="au-msg" style="display:none;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="closeAddUser()"
+                    style="padding:8px 18px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:#374151;">
+                Cancel
+            </button>
+            <button onclick="createUser()"
+                    style="padding:8px 18px;border:none;border-radius:6px;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
+                Create
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════ Change History Panel ═════════════════ -->
+
+    <!-- Backdrop -->
+    <button id="ch-backdrop"
+         type="button"
+         aria-label="Close change history panel"
+         onclick="closeChangeHistory()"
+         onkeydown="handleBackdropKey(event, closeChangeHistory)"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;"></button>
+
+    <!-- Panel -->
+    <div id="ch-panel"
+         style="display:none;flex-direction:column;position:fixed;top:0;right:0;
+                height:100vh;width:min(780px,100vw);background:#fff;z-index:9999;
+                box-shadow:-4px 0 24px rgba(0,0,0,.18);font-family:Inter,sans-serif;font-size:13px;">
+
+        <!-- Header -->
+        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;
+                    align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 8V12L14 14M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"
+                          stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="font-weight:700;font-size:15px;color:#111827;">Workflow Change History</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button id="ch-delete-btn"
+                        onclick="deleteSelected()"
+                        style="display:none;padding:6px 12px;background:#dc2626;color:#fff;border:none;
+                               border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+                    Delete Selected
+                </button>
+                <button onclick="closeChangeHistory()"
+                        style="background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;color:#6b7280;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div style="padding:12px 20px;border-bottom:1px solid #e5e7eb;display:flex;
+                    align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;">
+            <input id="ch-search" type="text" placeholder="Filter by workflow name…"
+                   oninput="chFilterChanged()"
+                   style="flex:1;min-width:200px;padding:7px 10px;border:1px solid #d1d5db;
+                          border-radius:6px;font-size:13px;outline:none;"/>
+            <select id="ch-type-filter" onchange="chFilterChanged()"
+                    style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;
+                           font-size:13px;background:#fff;cursor:pointer;">
+                <option value="">All change types</option>
+                <option value="Created">Created</option>
+                <option value="Duplicated">Duplicated</option>
+                <option value="Saved">Saved</option>
+                <option value="Published">Published</option>
+                <option value="Unpublished">Unpublished</option>
+                <option value="Deleted">Deleted</option>
+            </select>
+            <button onclick="refreshHistory()"
+                    title="Refresh"
+                    style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;
+                           background:#fff;cursor:pointer;font-size:13px;color:#374151;">
+                ↻ Refresh
+            </button>
+            <span id="ch-count" style="color:#6b7280;white-space:nowrap;"></span>
+        </div>
+
+        <!-- Table container -->
+        <div id="ch-table-wrap" style="flex:1;overflow-y:auto;padding:0 20px 10px;">
+            <p id="ch-loading" style="padding:20px;color:#6b7280;text-align:center;">Loading…</p>
+            <table id="ch-table"
+                   style="display:none;width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;position:sticky;top:0;z-index:1;">
+                        <th id="ch-chk-col" style="display:none;padding:10px 8px;text-align:center;width:36px;">
+                            <input type="checkbox" id="ch-select-all" onchange="toggleSelectAll(this.checked)"
+                                   style="cursor:pointer;" />
+                        </th>
+                        <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;white-space:nowrap;">Workflow</th>
+                        <th style="padding:10px 8px;text-align:center;font-weight:600;color:#374151;white-space:nowrap;">Ver</th>
+                        <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;white-space:nowrap;">Change</th>
+                        <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;white-space:nowrap;">Changed By</th>
+                        <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;white-space:nowrap;">When</th>
+                        <th style="padding:10px 8px;text-align:center;font-weight:600;color:#374151;white-space:nowrap;">Activities</th>
+                    </tr>
+                </thead>
+                <tbody id="ch-tbody"></tbody>
+            </table>
+            <p id="ch-empty" style="display:none;padding:20px;color:#6b7280;text-align:center;">No records found.</p>
+        </div>
+
+        <!-- Pagination bar -->
+        <div id="ch-pagination"
+             style="display:none;padding:10px 20px;border-top:1px solid #e5e7eb;
+                    display:flex;align-items:center;justify-content:center;gap:12px;
+                    flex-shrink:0;font-size:13px;color:#374151;">
+            <button onclick="chGoPage(_chPage - 1)"
+                    style="padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;
+                           background:#fff;cursor:pointer;font-size:13px;">
+                ← Prev
+            </button>
+            <span id="ch-page-info"></span>
+            <button onclick="chGoPage(_chPage + 1)"
+                    style="padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;
+                           background:#fff;cursor:pointer;font-size:13px;">
+                Next →
+            </button>
+        </div>
+
+        <!-- Detail drawer -->
+        <div id="ch-detail"
+             style="display:none;border-top:2px solid #e5e7eb;background:#f9fafb;
+                    flex-shrink:0;max-height:420px;overflow-y:auto;">
+
+            <!-- Detail header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:12px 20px 8px;position:sticky;top:0;background:#f9fafb;
+                        border-bottom:1px solid #e5e7eb;z-index:1;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span id="ch-detail-title"
+                          style="font-weight:700;font-size:13px;color:#111827;"></span>
+                    <button id="ch-open-studio"
+                            onclick="openInStudio()"
+                            style="padding:4px 10px;background:#6366f1;color:#fff;border:none;
+                                   border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;">
+                        Open in Studio ↗
+                    </button>
+                </div>
+                <button onclick="closeDetail()"
+                        style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;">✕</button>
+            </div>
+
+            <div style="padding:14px 20px;">
+                <!-- Summary grid -->
+                <dl id="ch-detail-meta"
+                    style="display:grid;grid-template-columns:140px 1fr;gap:4px 12px;
+                           margin:0 0 14px;font-size:12px;"></dl>
+
+                <!-- Activity type chips -->
+                <div id="ch-detail-activities" style="margin-bottom:14px;"></div>
+
+                <!-- Before / After tabs -->
+                <div id="ch-detail-tabs" style="display:none;">
+                    <div style="display:flex;gap:0;border-bottom:2px solid #e5e7eb;margin-bottom:10px;">
+                        <button id="ch-tab-after"  onclick="switchTab('after')"
+                                style="padding:6px 16px;border:none;border-bottom:2px solid #6366f1;
+                                       margin-bottom:-2px;background:none;font-weight:600;
+                                       font-size:12px;color:#6366f1;cursor:pointer;">
+                            After (current)
+                        </button>
+                        <button id="ch-tab-before" onclick="switchTab('before')"
+                                style="padding:6px 16px;border:none;border-bottom:2px solid transparent;
+                                       margin-bottom:-2px;background:none;font-weight:600;
+                                       font-size:12px;color:#6b7280;cursor:pointer;">
+                            Before (previous version)
+                        </button>
+                    </div>
+                    <pre id="ch-json-pane"
+                         style="background:#1e1e2e;color:#cdd6f4;padding:12px;border-radius:6px;
+                                font-size:11px;overflow:auto;max-height:260px;
+                                white-space:pre;margin:0;"></pre>
+                </div>
+                <p id="ch-no-json" style="display:none;font-size:12px;color:#6b7280;">
+                    No workflow JSON captured for this record.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ── Auth guard — runs immediately before any other code ──── */
+        (function initAuth() {
+            var token = localStorage.getItem('elsa_jwt');
+            if (!token) { window.location.replace('/elsa-login'); return; }
+            try {
+                // Decode JWT payload (base64url → JSON, no library needed)
+                var b64     = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+                var payload = JSON.parse(atob(b64));
+                // Reject expired tokens immediately
+                if (payload.exp && (Date.now() / 1000) > payload.exp) {
+                    localStorage.clear();
+                    window.location.replace('/elsa-login');
+                    return;
+                }
+                window.CURRENT_USER    = payload.username || 'User';
+                window.CURRENT_USER_ID = parseInt(payload.userId || '0', 10);
+                window.IS_ADMIN        = payload.isAdmin === 'true' || payload.IsAdmin === 'true';
+            } catch (e) {
+                localStorage.clear();
+                window.location.replace('/elsa-login');
+                return;
+            }
+            // Populate DOM elements once the page is ready
+            document.addEventListener('DOMContentLoaded', function () {
+                var initials = (CURRENT_USER || '?')
+                    .split(' ').filter(Boolean).slice(0, 2)
+                    .map(function (w) { return w[0].toUpperCase(); }).join('') || '?';
+                document.getElementById('user-initials').textContent = initials;
+                document.getElementById('profile-name').textContent  = CURRENT_USER;
+                if (IS_ADMIN) {
+                    document.getElementById('profile-admin-badge').style.display = 'block';
+                    document.getElementById('btn-manage-users').style.display    = 'block';
+                    document.getElementById('btn-change-history').style.display  = 'block';
+                }
+            });
+        })();
+
+        /* ── Auth helper — attach Bearer token to every API call ── */
+        function getAuthHeaders(extra) {
+            var token = localStorage.getItem('elsa_jwt') || '';
+            return Object.assign({ 'Authorization': 'Bearer ' + token }, extra || {});
+        }
+
+        /* ── Logout ─────────────────────────────────────────────── */
+        function doLogout() {
+            try { localStorage.clear(); } catch (e) {}
+            try { sessionStorage.clear(); } catch (e) {}
+            window.location.replace('/elsa-login');
+        }
+
+        /* ── Profile dropdown ──────────────────────────────── */
+        function toggleProfileMenu(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('profile-menu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        document.addEventListener('click', () => {
+            const menu = document.getElementById('profile-menu');
+            if (menu) menu.style.display = 'none';
+        });
+
+        /* ── Change Password ──────────────────────────────── */
+        function openChangePassword() {
+            document.getElementById('profile-menu').style.display = 'none';
+            document.getElementById('cp-modal').style.display    = 'block';
+            document.getElementById('cp-backdrop').style.display  = 'block';
+            document.getElementById('cp-current').value  = '';
+            document.getElementById('cp-new').value      = '';
+            document.getElementById('cp-confirm').value  = '';
+            document.getElementById('cp-msg').style.display = 'none';
+        }
+
+        function closeChangePassword() {
+            document.getElementById('cp-modal').style.display   = 'none';
+            document.getElementById('cp-backdrop').style.display = 'none';
+        }
+
+        async function saveChangePassword() {
+            const current  = document.getElementById('cp-current').value;
+            const newPwd   = document.getElementById('cp-new').value;
+            const confirm  = document.getElementById('cp-confirm').value;
+            const msgEl    = document.getElementById('cp-msg');
+
+            if (!current || !newPwd || !confirm) {
+                showMsg(msgEl, 'All fields are required.', false);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/user-mgmt/change-password', {
+                    method:  'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body:    JSON.stringify({ currentPassword: current, newPassword: newPwd, confirmPassword: confirm })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMsg(msgEl, data.message || 'Password changed!', true);
+                    setTimeout(closeChangePassword, 1500);
+                } else {
+                    showMsg(msgEl, data.message || 'Error changing password.', false);
+                }
+            } catch (err) {
+                showMsg(msgEl, 'Network error: ' + err.message, false);
+            }
+        }
+
+        function showMsg(el, text, ok) {
+            el.textContent = text;
+            el.style.background  = ok ? '#dcfce7' : '#fee2e2';
+            el.style.color       = ok ? '#166534' : '#991b1b';
+            el.style.display     = 'block';
+        }
+
+        /* ── Manage Users ─────────────────────────────────── */
+        function openManageUsers() {
+            document.getElementById('profile-menu').style.display = 'none';
+            document.getElementById('mu-panel').style.display    = 'flex';
+            document.getElementById('mu-backdrop').style.display  = 'block';
+            loadUsers();
+        }
+
+        function closeManageUsers() {
+            document.getElementById('mu-panel').style.display   = 'none';
+            document.getElementById('mu-backdrop').style.display = 'none';
+        }
+
+        async function loadUsers() {
+            document.getElementById('mu-loading').style.display = 'block';
+            document.getElementById('mu-table').style.display   = 'none';
+            try {
+                const res = await fetch('/api/user-mgmt/users', { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const users = await res.json();
+                renderUsers(users);
+            } catch (err) {
+                document.getElementById('mu-loading').textContent = '⚠ Could not load users: ' + err.message;
+            }
+        }
+
+        function renderUsers(users) {
+            document.getElementById('mu-loading').style.display = 'none';
+            const tbody = document.getElementById('mu-tbody');
+            tbody.innerHTML = '';
+            users.forEach(u => {
+                const isSelf = (u.id === CURRENT_USER_ID);
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f3f4f6';
+                const statusBadge = u.active
+                    ? '<span style="padding:2px 8px;background:#dcfce7;color:#166534;border-radius:9999px;font-size:11px;font-weight:600;">Active</span>'
+                    : '<span style="padding:2px 8px;background:#fee2e2;color:#991b1b;border-radius:9999px;font-size:11px;font-weight:600;">Inactive</span>';
+                const adminBadge = u.isAdmin
+                    ? '<span style="padding:2px 8px;background:#e0e7ff;color:#3730a3;border-radius:9999px;font-size:11px;font-weight:600;">Admin</span>'
+                    : '';
+                const disabled = isSelf ? 'disabled style="opacity:.4;cursor:not-allowed;"' : 'style="cursor:pointer;"';
+                tr.innerHTML = `
+                    <td style="padding:9px 8px;color:#111827;font-weight:500;">${esc(u.username)}</td>
+                    <td style="padding:9px 8px;color:#6b7280;">${esc(u.email)}</td>
+                    <td style="padding:9px 8px;text-align:center;">${statusBadge}</td>
+                    <td style="padding:9px 8px;text-align:center;">${adminBadge}</td>
+                    <td style="padding:9px 8px;text-align:center;">
+                        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+                            <button onclick="resetPwd(${u.id})"
+                                    style="padding:4px 8px;background:#f3f4f6;border:1px solid #d1d5db;
+                                           border-radius:4px;font-size:11px;cursor:pointer;"
+                                    title="Reset password to default">🔑 Reset Pwd</button>
+                            <button onclick="toggleActive(${u.id})" ${disabled}
+                                    style="padding:4px 8px;background:#f3f4f6;border:1px solid #d1d5db;
+                                           border-radius:4px;font-size:11px;" title="Toggle active">
+                                ${u.active ? '⛔ Deactivate' : '✅ Activate'}</button>
+                            <button onclick="toggleAdmin(${u.id})" ${disabled}
+                                    style="padding:4px 8px;background:#f3f4f6;border:1px solid #d1d5db;
+                                           border-radius:4px;font-size:11px;" title="Toggle admin">
+                                ${u.isAdmin ? '👤 Remove Admin' : '⭐ Make Admin'}</button>
+                            <button onclick="deleteUser(${u.id})" ${disabled}
+                                    style="padding:4px 8px;background:#fee2e2;border:1px solid #fca5a5;
+                                           color:#dc2626;border-radius:4px;font-size:11px;" title="Delete user">
+                                🗑 Delete</button>
+                        </div>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('mu-table').style.display = 'table';
+        }
+
+        async function resetPwd(id) {
+            if (!confirm('Reset this user\'s password to default?')) return;
+            const res = await fetch('/api/user-mgmt/users/' + id + '/reset-password', {
+                method: 'POST', headers: getAuthHeaders()
+            });
+            if (res.ok) { alert('Password reset.'); }
+            else { const d = await res.json(); alert(d.message || 'Error'); }
+        }
+
+        async function toggleActive(id) {
+            const res = await fetch('/api/user-mgmt/users/' + id + '/toggle-active', {
+                method: 'PUT', headers: getAuthHeaders()
+            });
+            if (res.ok) { loadUsers(); }
+            else { const d = await res.json(); alert(d.message || 'Error'); }
+        }
+
+        async function toggleAdmin(id) {
+            const res = await fetch('/api/user-mgmt/users/' + id + '/toggle-admin', {
+                method: 'PUT', headers: getAuthHeaders()
+            });
+            if (res.ok) { loadUsers(); }
+            else { const d = await res.json(); alert(d.message || 'Error'); }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Permanently delete this user?')) return;
+            const res = await fetch('/api/user-mgmt/users/' + id, {
+                method: 'DELETE', headers: getAuthHeaders()
+            });
+            if (res.ok) { loadUsers(); }
+            else { const d = await res.json(); alert(d.message || 'Error'); }
+        }
+
+        /* ── Add User modal ───────────────────────────────── */
+        function openAddUser() {
+            document.getElementById('au-modal').style.display   = 'block';
+            document.getElementById('au-backdrop').style.display = 'block';
+            document.getElementById('au-username').value = '';
+            document.getElementById('au-email').value    = '';
+            document.getElementById('au-isadmin').checked = false;
+            document.getElementById('au-msg').style.display = 'none';
+        }
+
+        function closeAddUser() {
+            document.getElementById('au-modal').style.display   = 'none';
+            document.getElementById('au-backdrop').style.display = 'none';
+        }
+
+        async function createUser() {
+            const username = document.getElementById('au-username').value.trim();
+            const email    = document.getElementById('au-email').value.trim();
+            const isAdmin  = document.getElementById('au-isadmin').checked;
+            const msgEl    = document.getElementById('au-msg');
+
+            if (!username || !email) {
+                showMsg(msgEl, 'Username and email are required.', false);
+                return;
+            }
+            try {
+                const res = await fetch('/api/user-mgmt/users', {
+                    method:  'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body:    JSON.stringify({ username, email, isAdmin })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMsg(msgEl, 'User created with default password.', true);
+                    setTimeout(() => { closeAddUser(); loadUsers(); }, 1200);
+                } else {
+                    showMsg(msgEl, data.message || 'Error creating user.', false);
+                }
+            } catch (err) {
+                showMsg(msgEl, 'Network error: ' + err.message, false);
+            }
+        }
+
+        /* ── Change History ────────────────────────────────── */
+        let _chPage      = 1;
+        let _chPageSize  = 50;
+        let _chTotalPages = 1;
+        let _chTotalCount = 0;
+        let _activeRow   = null;
+        let _activeTab   = 'after';
+        let _chFilterTimeout = null;
+        let _chSelectedIds = new Set();
+
+        function openChangeHistory() {
+            document.getElementById('profile-menu').style.display = 'none';
+            document.getElementById('ch-panel').style.display    = 'flex';
+            document.getElementById('ch-backdrop').style.display  = 'block';
+            document.getElementById('ch-search').value      = '';
+            document.getElementById('ch-type-filter').value  = '';
+            if (IS_ADMIN) {
+                document.getElementById('ch-chk-col').style.display = 'table-cell';
+                document.getElementById('ch-delete-btn').style.display = 'inline-block';
+            }
+            closeDetail();
+            _chPage = 1;
+            _chSelectedIds.clear();
+            refreshHistory();
+        }
+
+        function closeChangeHistory() {
+            document.getElementById('ch-panel').style.display   = 'none';
+            document.getElementById('ch-backdrop').style.display = 'none';
+        }
+
+        function closeDetail() {
+            document.getElementById('ch-detail').style.display = 'none';
+            _activeRow = null;
+        }
+
+        function chFilterChanged() {
+            clearTimeout(_chFilterTimeout);
+            _chFilterTimeout = setTimeout(() => {
+                _chPage = 1;
+                _chSelectedIds.clear();
+                refreshHistory();
+            }, 350);
+        }
+
+        function chGoPage(p) {
+            if (p < 1 || p > _chTotalPages) return;
+            _chPage = p;
+            _chSelectedIds.clear();
+            refreshHistory();
+        }
+
+        async function refreshHistory() {
+            const wf   = encodeURIComponent(document.getElementById('ch-search').value || '');
+            const type = encodeURIComponent(document.getElementById('ch-type-filter').value || '');
+            const url  = `/api/workflow-change-audit/paged?page=${_chPage}&pageSize=${_chPageSize}&workflowFilter=${wf}&changeTypeFilter=${type}`;
+
+            document.getElementById('ch-loading').style.display = 'block';
+            document.getElementById('ch-table').style.display   = 'none';
+            document.getElementById('ch-empty').style.display   = 'none';
+            document.getElementById('ch-pagination').style.display = 'none';
+            document.getElementById('ch-count').textContent     = '';
+            closeDetail();
+
+            try {
+                const res = await fetch(url, { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const paged = await res.json();
+                _chTotalPages = paged.totalPages || 1;
+                _chTotalCount = paged.totalCount || 0;
+                renderRows(paged.items || []);
+            } catch (err) {
+                document.getElementById('ch-loading').textContent =
+                    '⚠ Could not load history: ' + err.message;
+            }
+        }
+
+        /* ── Render table ──────────────────────────────────── */
+        function renderRows(rows) {
+            const tbody   = document.getElementById('ch-tbody');
+            const table   = document.getElementById('ch-table');
+            const empty   = document.getElementById('ch-empty');
+            const loading = document.getElementById('ch-loading');
+            const count   = document.getElementById('ch-count');
+            const pageBar = document.getElementById('ch-pagination');
+
+            loading.style.display = 'none';
+            tbody.innerHTML = '';
+            _chSelectedIds.clear();
+
+            if (!rows || rows.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                count.textContent   = '0 records';
+                pageBar.style.display = 'none';
+                return;
+            }
+
+            count.textContent = _chTotalCount + ' record' + (_chTotalCount === 1 ? '' : 's');
+            table.style.display = 'table';
+            empty.style.display = 'none';
+
+            // Pagination info
+            document.getElementById('ch-page-info').textContent =
+                `Page ${_chPage} of ${_chTotalPages} (${_chTotalCount} total)`;
+            pageBar.style.display = 'flex';
+
+            if (IS_ADMIN) {
+                document.getElementById('ch-select-all').checked = false;
+                document.getElementById('ch-chk-col').style.display = 'table-cell';
+            }
+
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.cssText =
+                    'border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background .12s;';
+                tr.onmouseenter = () => tr.style.background = '#f0f9ff';
+                tr.onmouseleave = () => tr.style.background =
+                    (_activeRow && _activeRow.id === r.id) ? '#eff6ff' : '';
+
+                tr.onclick = (e) => {
+                    if (e.target.type === 'checkbox') return;
+                    tbody.querySelectorAll('tr').forEach(x => x.style.background = '');
+                    tr.style.background = '#eff6ff';
+                    showDetail(r);
+                };
+
+                const exactTime = formatDate(r.changedAt);
+                const relTime   = relativeTime(r.changedAt);
+                const byLabel   = r.changedBy + (r.changedByUserId ? ` (ID:${r.changedByUserId})` : '');
+
+                const chkCell = IS_ADMIN
+                    ? `<td style="padding:9px 8px;text-align:center;" class="ch-chk-cell">
+                           <input type="checkbox" data-id="${r.id}"
+                                  onchange="chRowSelect(this, ${r.id})"
+                                  style="cursor:pointer;" />
+                       </td>`
+                    : '';
+
+                tr.innerHTML = `${chkCell}
+                    <td style="padding:9px 8px;color:#111827;max-width:200px;overflow:hidden;
+                                text-overflow:ellipsis;white-space:nowrap;"
+                        title="${esc(r.workflowName)}">${esc(r.workflowName)}</td>
+                    <td style="padding:9px 8px;text-align:center;color:#6b7280;">${r.version}</td>
+                    <td style="padding:9px 8px;">${badge(r.changeType)}</td>
+                    <td style="padding:9px 8px;color:#374151;max-width:160px;overflow:hidden;
+                                text-overflow:ellipsis;white-space:nowrap;"
+                        title="${esc(byLabel)}">${esc(r.changedBy)}</td>
+                    <td style="padding:9px 8px;color:#374151;white-space:nowrap;font-size:12px;"
+                        title="${esc(relTime)}">${esc(exactTime)}</td>
+                    <td style="padding:9px 8px;text-align:center;color:#6b7280;">
+                        ${r.activityCount != null ? r.activityCount : '—'}
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function chRowSelect(chk, id) {
+            if (chk.checked) _chSelectedIds.add(id);
+            else _chSelectedIds.delete(id);
+            updateDeleteBtn();
+        }
+
+        function toggleSelectAll(checked) {
+            document.querySelectorAll('#ch-tbody input[type=checkbox]').forEach(chk => {
+                chk.checked = checked;
+                const id = parseInt(chk.dataset.id);
+                if (checked) _chSelectedIds.add(id);
+                else _chSelectedIds.delete(id);
+            });
+            updateDeleteBtn();
+        }
+
+        function updateDeleteBtn() {
+            const btn = document.getElementById('ch-delete-btn');
+            if (btn) btn.textContent =
+                _chSelectedIds.size > 0
+                    ? `Delete Selected (${_chSelectedIds.size})`
+                    : 'Delete Selected';
+        }
+
+        async function deleteSelected() {
+            if (_chSelectedIds.size === 0) { alert('No records selected.'); return; }
+            if (!confirm(`Delete ${_chSelectedIds.size} selected record(s)?`)) return;
+            try {
+                const res = await fetch('/api/workflow-change-audit/selected', {
+                    method:  'DELETE',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body:    JSON.stringify({ ids: [..._chSelectedIds] })
+                });
+                if (!res.ok) { const d = await res.json(); alert(d.message || 'Error'); return; }
+                _chPage = 1;
+                refreshHistory();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        /* ── Detail panel ──────────────────────────────────── */
+        function showDetail(row) {
+            _activeRow = row;
+            document.getElementById('ch-detail').style.display = 'block';
+
+            document.getElementById('ch-detail-title').textContent =
+                row.workflowName + '  —  ' + row.changeType;
+
+            const meta = document.getElementById('ch-detail-meta');
+            const byLabel = row.changedBy +
+                (row.changedByUserId ? ` (ID: ${row.changedByUserId})` : '');
+            meta.innerHTML =
+                kv('Workflow',      row.workflowName) +
+                kv('Definition ID', row.definitionId) +
+                kv('Version',       row.version) +
+                kv('Change',        row.changeType) +
+                kv('Changed By',    byLabel) +
+                kv('Changed At',    formatDate(row.changedAt)) +
+                kv('IP Address',    row.ipAddress || '—') +
+                kv('Activities',    row.activityCount != null ? row.activityCount : '—');
+
+            const actDiv = document.getElementById('ch-detail-activities');
+            actDiv.innerHTML = '';
+            let parsedDetails = null;
+            if (row.changeDetails) {
+                try { parsedDetails = JSON.parse(row.changeDetails); } catch (_) {}
+            }
+            const types = parsedDetails?.activityTypes ?? [];
+            if (types.length > 0) {
+                actDiv.innerHTML =
+                    '<div style="font-weight:600;font-size:12px;color:#374151;margin-bottom:6px;">Activity Types</div>' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+                    types.map(t =>
+                        `<span style="padding:2px 8px;background:#e0e7ff;color:#3730a3;
+                                      border-radius:9999px;font-size:11px;">${esc(t)}</span>`
+                    ).join('') +
+                    '</div>';
+            }
+
+            const hasBefore = !!(parsedDetails?.workflowDataBefore);
+            const hasAfter  = !!(parsedDetails?.workflowDataAfter);
+
+            if (hasBefore || hasAfter) {
+                document.getElementById('ch-detail-tabs').style.display = 'block';
+                document.getElementById('ch-no-json').style.display      = 'none';
+                document.getElementById('ch-tab-before').style.display   =
+                    hasBefore ? '' : 'none';
+                _activeTab = hasAfter ? 'after' : 'before';
+                switchTab(_activeTab);
+            } else {
+                document.getElementById('ch-detail-tabs').style.display = 'none';
+                document.getElementById('ch-no-json').style.display      = 'block';
+            }
+
+            document.getElementById('ch-detail').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /* ── Before / After tab switch ─────────────────────── */
+        function switchTab(tab) {
+            _activeTab = tab;
+            if (!_activeRow || !_activeRow.changeDetails) return;
+
+            let parsed = null;
+            try { parsed = JSON.parse(_activeRow.changeDetails); } catch (_) { return; }
+
+            const data = tab === 'after'
+                ? parsed?.workflowDataAfter
+                : parsed?.workflowDataBefore;
+
+            const pane = document.getElementById('ch-json-pane');
+            pane.textContent = data
+                ? JSON.stringify(data, null, 2)
+                : '(no data available)';
+
+            const styleActive   = 'padding:6px 16px;border:none;border-bottom:2px solid #6366f1;margin-bottom:-2px;background:none;font-weight:600;font-size:12px;color:#6366f1;cursor:pointer;';
+            const styleInactive = 'padding:6px 16px;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;background:none;font-weight:600;font-size:12px;color:#6b7280;cursor:pointer;';
+            document.getElementById('ch-tab-after').style.cssText  =
+                tab === 'after'  ? styleActive : styleInactive;
+            document.getElementById('ch-tab-before').style.cssText =
+                tab === 'before' ? styleActive : styleInactive;
+        }
+
+        /* ── Open in Studio ────────────────────────────────── */
+        function openInStudio() {
+            if (!_activeRow) return;
+            window.location.href = '/workflow-definitions/' + encodeURIComponent(_activeRow.definitionId);
+        }
+
+        /* ── Helpers ───────────────────────────────────────── */
+        const BADGE_COLORS = {
+            Created:     { bg:'#dcfce7', text:'#166534' },
+            Duplicated:  { bg:'#dbeafe', text:'#1e40af' },
+            Saved:       { bg:'#fef9c3', text:'#854d0e' },
+            Published:   { bg:'#d1fae5', text:'#065f46' },
+            Unpublished: { bg:'#fee2e2', text:'#991b1b' },
+            Deleted:     { bg:'#fce7f3', text:'#831843' },
+        };
+        function badge(type) {
+            const c = BADGE_COLORS[type] || { bg:'#f3f4f6', text:'#374151' };
+            return `<span style="padding:2px 9px;border-radius:9999px;font-size:11px;font-weight:600;
+                                 background:${c.bg};color:${c.text};">${esc(type)}</span>`;
+        }
+
+        function esc(s) {
+            return String(s ?? '')
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function kv(label, value) {
+            return `<dt style="font-weight:600;color:#374151;padding:2px 0;font-size:12px;">${esc(label)}</dt>
+                    <dd style="margin:0;color:#111827;padding:2px 0;font-size:12px;">${esc(String(value ?? ''))}</dd>`;
+        }
+
+        /** Exact local datetime */
+        function formatDate(iso) {
+            if (!iso) return '—';
+            try {
+                const d = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
+                return d.toLocaleString(undefined, {
+                    year:'numeric', month:'short', day:'numeric',
+                    hour:'2-digit', minute:'2-digit', second:'2-digit'
+                });
+            } catch (_) { return iso; }
+        }
+
+        /** Relative "2h ago" */
+        function relativeTime(iso) {
+            if (!iso) return '—';
+            try {
+                const d    = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
+                const diff = Date.now() - d.getTime();
+                const s    = Math.floor(diff / 1000);
+                if (s < 60)  return 'just now';
+                const m = Math.floor(s / 60);
+                if (m < 60)  return m + 'm ago';
+                const h = Math.floor(m / 60);
+                if (h < 24)  return h + 'h ago';
+                const dy = Math.floor(h / 24);
+                return dy + 'd ago';
+            } catch (_) { return ''; }
+        }
+    </script>
+</body>
+</html>

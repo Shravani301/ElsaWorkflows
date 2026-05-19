@@ -1,0 +1,227 @@
+﻿@page "/elsa-login"
+@model MozartWorkflows.Pages.LoginModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Login - Workflows Engine</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-container {
+            background-color: #fff;
+            padding: 1.5rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 320px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 1.2rem;
+            font-size: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            height: 36px;
+            padding: 0.4rem;
+            font-size: 0.9rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            width: 100%;
+            height: 40px;
+            background-color: #007bff;
+            color: white;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+            .btn:hover {
+                background-color: #0056b3;
+            }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .forgot-link {
+            display: block;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #007bff;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            text-decoration: underline;
+        }
+
+        .forgot-section {
+            display: none;
+            border-top: 1px solid #eee;
+            margin-top: 14px;
+            padding-top: 14px;
+        }
+
+        .fp-msg {
+            display: none;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Login</h2>
+
+        <div id="login-error" class="error" style="display:none;"></div>
+
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="Username">Username</label>
+                <input type="text" id="Username" placeholder="Username or email" autocomplete="username" />
+            </div>
+            <div class="form-group">
+                <label for="Password">Password</label>
+                <input type="password" id="Password" placeholder="Password" autocomplete="current-password" />
+            </div>
+            <button type="submit" id="login-btn" class="btn">Login</button>
+        </form>
+
+        <button class="forgot-link" onclick="toggleForgot()">Forgot Password?</button>
+
+        <div id="forgot-section" class="forgot-section">
+            <div class="form-group" style="margin-bottom:8px;">
+                <label for="fp-username" style="font-size:0.8rem;">Enter your username</label>
+                <input id="fp-username" type="text" placeholder="Username" />
+            </div>
+            <div id="fp-msg" class="fp-msg"></div>
+            <button type="button" class="btn" style="height:36px;font-size:0.875rem;" onclick="submitForgot()">Reset Password</button>
+        </div>
+    </div>
+
+    <script>
+        async function handleLogin(e) {
+            e.preventDefault();
+            var username = document.getElementById('Username').value.trim();
+            var password = document.getElementById('Password').value;
+            var errEl    = document.getElementById('login-error');
+            var btn      = document.getElementById('login-btn');
+
+            if (!username || !password) {
+                errEl.textContent   = 'Username and password are required.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            btn.disabled    = true;
+            btn.textContent = 'Logging in\u2026';
+            errEl.style.display = 'none';
+
+            try {
+                var res  = await fetch('/api/auth/login', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ username: username, password: password })
+                });
+                var data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('elsa_jwt',      data.token);
+                    localStorage.setItem('elsa_username', data.username);
+                    localStorage.setItem('elsa_userId',   String(data.userId));
+                    localStorage.setItem('elsa_isAdmin',  data.isAdmin ? 'true' : 'false');
+                    window.location.replace('/');
+                } else {
+                    errEl.textContent   = data.message || 'Invalid username or password.';
+                    errEl.style.display = 'block';
+                }
+            } catch (err) {
+                errEl.textContent   = 'Network error. Please try again.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled    = false;
+                btn.textContent = 'Login';
+            }
+        }
+
+        function toggleForgot() {
+            var s = document.getElementById('forgot-section');
+            s.style.display = s.style.display === 'block' ? 'none' : 'block';
+            if (s.style.display === 'block') {
+                document.getElementById('fp-username').focus();
+                document.getElementById('fp-msg').style.display = 'none';
+            }
+        }
+
+        async function submitForgot() {
+            var username = document.getElementById('fp-username').value.trim();
+            var msgEl    = document.getElementById('fp-msg');
+
+            if (!username) {
+                showFpMsg('Please enter your username.', false);
+                return;
+            }
+
+            try {
+                var res = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+                var data = await res.json();
+                showFpMsg(data.message, true);
+                document.getElementById('fp-username').value = '';
+            } catch (err) {
+                showFpMsg('Network error. Please try again.', false);
+            }
+        }
+
+        function showFpMsg(text, ok) {
+            var el = document.getElementById('fp-msg');
+            el.textContent = text;
+            el.style.background = ok ? '#dcfce7' : '#fee2e2';
+            el.style.color      = ok ? '#166534' : '#991b1b';
+            el.style.display    = 'block';
+        }
+    </script>
+</body>
+</html>

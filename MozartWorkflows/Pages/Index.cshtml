@@ -1,0 +1,8 @@
+﻿@page "/Index"
+@model MozartWorkflows.Pages.IndexModel
+@using Microsoft.AspNetCore.Authorization
+@{
+    ViewData["Title"] = "Home";
+}
+
+<h1>Welcome @User.Identity?.Name</h1>

@@ -1,0 +1,31 @@
+{
+
+  "ConnectionStrings": {
+    "connectionString": "Data Source=<SERVER>;Initial Catalog=<DB>;User ID=<DB_USER>;Password=<DB_PASSWORD>;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;ApplicationIntent=ReadWrite;MultiSubnetFailover=False"
+  },
+
+  "jwt": {
+
+    "Key": "<JWT_SIGNING_KEY>",
+
+    "ExpiryTime": 30
+
+  },
+
+  "Logging": {
+
+    "LogLevel": {
+
+      "Default": "Information",
+
+      "Microsoft.AspNetCore": "Warning"
+
+    }
+
+  },
+
+  "AllowedHosts": "*"
+
+}
+
+ 

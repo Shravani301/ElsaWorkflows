@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(elsa-workflows)",
+      "Bash(git stash *)",
+      "Bash(dotnet build *)",
+      "Bash(python3 -c \" import json, sys, collections data = json.load\\(sys.stdin\\) issues = data.get\\('issues', data\\) if isinstance\\(data, dict\\) else data by_rule = collections.Counter\\(i['rule'] for i in issues\\) print\\('Issues by rule:'\\) for rule, count in sorted\\(by_rule.items\\(\\), key=lambda x: -x[1]\\): print\\(f' {rule}: {count}'\\) print\\(f'Total: {len\\(issues\\)}'\\) \")",
+      "Bash(python -c \" import json, sys, collections with open\\('C:/Users/KongaShravani/Downloads/issues.json'\\) as f: data = json.load\\(f\\) issues = data.get\\('issues', data\\) if isinstance\\(data, dict\\) else data by_rule = collections.Counter\\(i['rule'] for i in issues\\) print\\('Issues by rule:'\\) for rule, count in sorted\\(by_rule.items\\(\\), key=lambda x: -x[1]\\): print\\(f' {rule}: {count}'\\) print\\(f'Total: {len\\(issues\\)}'\\) \")",
+      "Bash(python -c \" import sys lines = sys.stdin.readlines\\(\\) warnings = set\\(\\) for l in lines: if 'warning' in l.lower\\(\\) and \\('CS8' in l or 'CA1' in l or 'CS02' in l or 'CS01' in l\\): warnings.add\\(l.strip\\(\\)\\) for w in sorted\\(warnings\\): print\\(w\\) \")"
+    ]
+  }
+}
