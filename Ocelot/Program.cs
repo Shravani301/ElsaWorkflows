@@ -16,6 +16,7 @@ builder.Configuration
        .AddJsonFile("oce.appsettings.json", optional: false, reloadOnChange: true)
        .AddJsonFile($"oce.appsettings.{builder.Environment.EnvironmentName}.json",
                     optional: true, reloadOnChange: true)          // e.g. oce.appsettings.Development.json
+       .AddJsonFile("oce.appsettings.Secrets.json", optional: true, reloadOnChange: true)
        .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
        .AddEnvironmentVariables();
 

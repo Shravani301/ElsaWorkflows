@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>$(NoWarn);NU1608;NU1701</NoWarn>
     <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3101</MSBuildWarningsAsMessages>
+    <UserSecretsId>b061b188-62ac-4581-8f45-213d20820647</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

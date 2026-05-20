@@ -41,6 +41,10 @@ namespace MozartWorkflows
             try
             {
                 var builder = WebApplication.CreateBuilder(args);
+
+                builder.Configuration
+                    .AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: true);
+
                 var config = builder.Configuration;
 
                 QuestPDF.Settings.License = LicenseType.Community;

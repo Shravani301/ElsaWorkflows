@@ -783,3 +783,9 @@ coverage*[.json, .xml, .info]
 
 # Repository-level MSBuild defaults
 !Directory.Build.rsp
+
+# Local secrets — never commit
+appsettings.Secrets.json
+**/appsettings.Secrets.json
+oce.appsettings.Secrets.json
+**/oce.appsettings.Secrets.json
