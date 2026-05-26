@@ -789,3 +789,10 @@ appsettings.Secrets.json
 **/appsettings.Secrets.json
 oce.appsettings.Secrets.json
 **/oce.appsettings.Secrets.json
+
+# Database backups — too large for Git and contain DEV data; keep out of repo
+DB-Backup/*
+!DB-Backup/README.md
+*.bacpac
+*.dacpac
+*.bak
